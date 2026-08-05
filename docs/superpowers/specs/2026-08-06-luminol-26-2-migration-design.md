@@ -280,6 +280,58 @@ Lingering和Dragonfire不再从远端 shooter所有者上下文发射药水后�
 - 不在Region线程执行磁盘、数据库或网络IO。
 - 不在Region线程等待其他Region、Future或锁。
 
+## README 文档设计
+
+### 语言与维护方式
+
+`README.md` 作为完整中文主页，`README_EN.md` 保存带有 Fork 状态说明的上游英文内容。两份文档在顶部互相提供语言切换链接。英文文档不作为中文主页的完整镜像，也不把上游旧兼容表表述为当前 Fork 的支持范围。
+
+### 中文主页
+
+中文主页保留上游横幅和功能 GIF，并为所有图片添加非空中文 `alt` 文本。顶部添加 Minecraft 26.2、Luminol、Java 25、Folia、GPL-3.0 和迁移中状态徽章，不添加未经持续集成证明的 Build Passing 或 Release 徽章。
+
+正文按以下顺序组织：
+
+1. 项目简介。
+2. Luminol 26.2 迁移状态。
+3. 功能特性。
+4. 效果展示。
+5. 环境要求。
+6. 安装说明。
+7. 从源码构建。
+8. 可选依赖。
+9. 文档与链接。
+10. 作者与致谢。
+11. GNU GPL v3 许可证。
+
+迁移状态必须明确：当前 `master` 仍在迁移和验证中，不能作为已经完成 Luminol/Folia 兼容的生产版本使用。目标核心为 Luminol `26.2.build.726-stable`，目标环境为 Minecraft 26.2、Java 25 和 NightCore 2.16.4。编译成功或 `folia-supported: true` 均不能单独证明完整运行时线程安全。
+
+功能说明使用自然中文，保留 PlaceholderAPI、PacketEvents、ProtocolLib、MythicMobs、GUI、ItemStack、Folia 和 Luminol 等专有名词。删除“绝不会出现错误、Bug 或崩溃”等无法验证的绝对承诺。上游 Wiki 必须注明可能尚未覆盖当前 Fork。
+
+当前没有经过验证的发布构建，因此安装章节不提供可直接用于生产环境的成品下载步骤。从源码构建章节记录目标命令 `mvn clean package`，同时说明只有迁移实现和测试完成后，该命令才代表受支持构建流程。普通用户文档不把本机 `localhost:7897` 代理写成强制要求。
+
+作者信息保留原作者 NightExpress，并列出 Luminol 26.2 迁移作者 cloudfl4re。源码链接同时包含 `mcxqk/ExcellentEnchants-spigot` Fork 与 `nulli0n/ExcellentEnchants-spigot` 上游。
+
+### 英文上游参考
+
+`README_EN.md` 在顶部链接回简体中文主页，并增加醒目的 Fork notice。Notice 说明当前 Fork 面向 Luminol 26.2、迁移仍在进行中、下方内容来自上游 README，以及上游兼容表不代表当前 Fork 的兼容状态。
+
+Notice 以下保留上游英文介绍、功能描述、GIF、旧兼容表和原始链接。所有图片补充非空英文 `alt` 文本。上游 GitHub 链接保持指向原仓库，Notice 另行提供 `mcxqk` Fork 链接。
+
+### 中文文档审校
+
+README 修改必须遵循 `chinese-documentation`：
+
+- 中文与英文、数字和单位之间保留空格。
+- 中文语境使用全角标点，英文和代码使用半角标点。
+- 专有名词保留英文并保持前后一致。
+- 句子简短自然，不使用机翻式长句和不必要的被动语态。
+- 标题层级连续，代码块声明语言。
+- 所有相对链接指向真实文件。
+- 外部链接通过 `localhost:7897` 代理检查可访问性。
+- 两份文档均不得声称迁移已经完成。
+- README 变更单独提交并推送到 `mcxqk` Fork。
+
 ## 测试设计
 
 实现遵循红灯、绿灯、重构顺序。先添加失败测试并确认因目标行为缺失而失败，再写最少实现。
