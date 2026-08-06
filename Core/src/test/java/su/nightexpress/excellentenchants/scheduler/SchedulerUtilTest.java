@@ -233,4 +233,15 @@ class SchedulerUtilTest {
         verify(this.action, org.mockito.Mockito.times(2)).run();
         verify(this.globalScheduler).run(eq(this.plugin), any());
     }
+
+    @Test
+    void routesRemotePlayerSenderToEntityScheduler() {
+        Player player = mock(Player.class);
+        when(player.getScheduler()).thenReturn(this.entityScheduler);
+        when(this.ownership.isOwned(player)).thenReturn(false);
+
+        this.scheduler.runAtSender(player, this.action);
+
+        verify(this.entityScheduler).run(eq(this.plugin), any(), any(Runnable.class));
+    }
 }
