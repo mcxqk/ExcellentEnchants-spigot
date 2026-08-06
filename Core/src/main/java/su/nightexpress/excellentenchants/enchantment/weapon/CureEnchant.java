@@ -15,7 +15,6 @@ import su.nightexpress.excellentenchants.enchantment.EnchantContext;
 import su.nightexpress.excellentenchants.enchantment.GameEnchantment;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
 import su.nightexpress.nightcore.config.FileConfig;
-import su.nightexpress.nightcore.util.Lists;
 import su.nightexpress.nightcore.util.wrapper.UniParticle;
 
 import java.nio.file.Path;
@@ -24,8 +23,7 @@ import java.util.Set;
 @NullMarked
 public class CureEnchant extends GameEnchantment implements AttackEnchant {
 
-    private static final Set<EntityType> CUREABLE = Lists.newSet(EntityType.ZOMBIFIED_PIGLIN,
-        EntityType.ZOMBIE_VILLAGER);
+    private static final Set<EntityType> CUREABLE = Set.of(EntityType.ZOMBIFIED_PIGLIN, EntityType.ZOMBIE_VILLAGER);
 
     public CureEnchant(EnchantsPlugin plugin, EnchantManager manager, Path file, EnchantContext context) {
         super(plugin, manager, file, context);

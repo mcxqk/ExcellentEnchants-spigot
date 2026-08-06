@@ -10,6 +10,7 @@ import su.nightexpress.excellentenchants.api.enchantment.CustomEnchantment;
 import su.nightexpress.nightcore.util.LowerCase;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 @NullMarked
@@ -27,8 +28,8 @@ public class EnchantHolder<T extends CustomEnchantment> {
         this.priority = priority;
         this.cacheable = cacheable;
 
-        this.enchants = new LinkedHashMap<>();
-        this.cachedEnchants = new HashMap<>();
+        this.enchants = new ConcurrentHashMap<>();
+        this.cachedEnchants = new ConcurrentHashMap<>();
     }
 
 
@@ -45,6 +46,7 @@ public class EnchantHolder<T extends CustomEnchantment> {
 
     public void clear() {
         this.enchants.clear();
+        this.cachedEnchants.clear();
     }
 
     public boolean isEmpty() {
@@ -61,7 +63,7 @@ public class EnchantHolder<T extends CustomEnchantment> {
 
 
     public Map<EquipmentSlot, EnchantedItem<T>> getCached(LivingEntity entity) {
-        return this.cachedEnchants.getOrDefault(entity.getUniqueId(), Collections.emptyMap());
+        return this.cachedEnchants.getOrDefault(entity.getUniqueId(), Map.of());
     }
 
     @Nullable
@@ -92,12 +94,21 @@ public class EnchantHolder<T extends CustomEnchantment> {
             return;
         }
 
-        this.cachedEnchants.computeIfAbsent(entity.getUniqueId(), k -> new HashMap<>()).put(slot,
-            new EnchantedItem<>(itemStack, adaptedEnchants));
+        this.cachedEnchants.compute(entity.getUniqueId(), (uuid, current) -> {
+            Map<EquipmentSlot, EnchantedItem<T>> updated = new EnumMap<>(EquipmentSlot.class);
+            if (current != null) updated.putAll(current);
+            updated.put(slot, new EnchantedItem<>(itemStack, Map.copyOf(adaptedEnchants)));
+            return Map.copyOf(updated);
+        });
     }
 
     public void removeCache(LivingEntity entity, EquipmentSlot slot) {
-        this.getCached(entity).remove(slot);
+        this.cachedEnchants.computeIfPresent(entity.getUniqueId(), (uuid, current) -> {
+            Map<EquipmentSlot, EnchantedItem<T>> updated = new EnumMap<>(EquipmentSlot.class);
+            updated.putAll(current);
+            updated.remove(slot);
+            return updated.isEmpty() ? null : Map.copyOf(updated);
+        });
     }
 
     public void clearCache(LivingEntity entity) {
@@ -115,7 +126,7 @@ public class EnchantHolder<T extends CustomEnchantment> {
 
 
     public Set<T> getEnchants() {
-        return new HashSet<>(this.enchants.values());
+        return Set.copyOf(this.enchants.values());
     }
 
     @Nullable

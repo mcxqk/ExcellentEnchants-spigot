@@ -10,6 +10,7 @@ import su.nightexpress.excellentenchants.api.enchantment.type.*;
 import su.nightexpress.nightcore.util.LowerCase;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -17,10 +18,10 @@ import java.util.stream.Collectors;
 @NullMarked
 public class EnchantRegistry {
 
-    private static final Map<NamespacedKey, CustomEnchantment> BY_KEY = new HashMap<>();
-    private static final Map<String, CustomEnchantment>        BY_ID  = new HashMap<>();
+    private static final Map<NamespacedKey, CustomEnchantment> BY_KEY = new ConcurrentHashMap<>();
+    private static final Map<String, CustomEnchantment>        BY_ID  = new ConcurrentHashMap<>();
 
-    private static final Map<String, EnchantHolder<?>> HOLDERS = new HashMap<>();
+    private static final Map<String, EnchantHolder<?>> HOLDERS = new ConcurrentHashMap<>();
 
     public static final EnchantHolder<MiningEnchant>      MINING       = registerHolder("mining", MiningEnchant.class,
         MiningEnchant::getBreakPriority);
@@ -96,17 +97,18 @@ public class EnchantRegistry {
 
 
     public static Set<CustomEnchantment> getRegistered() {
-        return new HashSet<>(BY_ID.values());
+        return Set.copyOf(BY_ID.values());
     }
 
 
     public static Set<Enchantment> getRegisteredBukkit() {
-        return getRegistered().stream().map(CustomEnchantment::getBukkitEnchantment).collect(Collectors.toSet());
+        return getRegistered().stream().map(CustomEnchantment::getBukkitEnchantment)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
 
     public static List<String> getRegisteredNames() {
-        return new ArrayList<>(BY_ID.keySet());
+        return List.copyOf(BY_ID.keySet());
     }
 
 
@@ -137,6 +139,6 @@ public class EnchantRegistry {
 
 
     public static Set<EnchantHolder<?>> getHolders() {
-        return new HashSet<>(HOLDERS.values());
+        return Set.copyOf(HOLDERS.values());
     }
 }

@@ -29,7 +29,6 @@ import su.nightexpress.nightcore.config.FileConfig;
 import su.nightexpress.nightcore.util.sound.VanillaSound;
 
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 
 @NullMarked
@@ -38,17 +37,15 @@ public class ReplanterEnchant extends GameEnchantment implements InteractEnchant
     private boolean replantOnRightClick;
     private boolean replantOnPlantBreak;
 
-    private static final Map<Material, Material> CROP_MAP = new HashMap<>();
-
-    static {
-        CROP_MAP.put(Material.WHEAT_SEEDS, Material.WHEAT);
-        CROP_MAP.put(Material.BEETROOT_SEEDS, Material.BEETROOTS);
-        CROP_MAP.put(Material.MELON_SEEDS, Material.MELON_STEM);
-        CROP_MAP.put(Material.PUMPKIN_SEEDS, Material.PUMPKIN_STEM);
-        CROP_MAP.put(Material.POTATO, Material.POTATOES);
-        CROP_MAP.put(Material.CARROT, Material.CARROTS);
-        CROP_MAP.put(Material.NETHER_WART, Material.NETHER_WART);
-    }
+    private static final Map<Material, Material> CROP_MAP = Map.of(
+        Material.WHEAT_SEEDS, Material.WHEAT,
+        Material.BEETROOT_SEEDS, Material.BEETROOTS,
+        Material.MELON_SEEDS, Material.MELON_STEM,
+        Material.PUMPKIN_SEEDS, Material.PUMPKIN_STEM,
+        Material.POTATO, Material.POTATOES,
+        Material.CARROT, Material.CARROTS,
+        Material.NETHER_WART, Material.NETHER_WART
+    );
 
     public ReplanterEnchant(EnchantsPlugin plugin, EnchantManager manager, Path file, EnchantContext context) {
         super(plugin, manager, file, context);

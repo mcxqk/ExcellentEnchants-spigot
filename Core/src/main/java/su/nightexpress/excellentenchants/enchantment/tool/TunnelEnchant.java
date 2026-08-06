@@ -21,7 +21,6 @@ import su.nightexpress.nightcore.config.FileConfig;
 import su.nightexpress.nightcore.util.Lists;
 
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -30,12 +29,8 @@ public class TunnelEnchant extends GameEnchantment implements MiningEnchant {
 
     // X and Z offsets for each block AoE mined
     private static final int[][]       MINING_COORD_OFFSETS = new int[][]{{0, 0}, {0, -1}, {-1, 0}, {0, 1}, {1, 0}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1},};
-    private static final Set<Material> INTERACTABLE_BLOCKS  = new HashSet<>();
-
-    static {
-        INTERACTABLE_BLOCKS.add(Material.REDSTONE_ORE);
-        INTERACTABLE_BLOCKS.add(Material.DEEPSLATE_REDSTONE_ORE);
-    }
+    private static final Set<Material> INTERACTABLE_BLOCKS  = Set.of(Material.REDSTONE_ORE,
+        Material.DEEPSLATE_REDSTONE_ORE);
 
     private boolean disableOnSneak;
 
