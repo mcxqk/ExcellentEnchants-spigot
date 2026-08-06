@@ -24,6 +24,8 @@
         <adventure.version>5.2.0</adventure.version>
         <guava.version>33.6.0-jre</guava.version>
         <slf4j.version>2.0.18</slf4j.version>
+        <log4j.version>2.26.0</log4j.version>
+        <bungeecord-chat.version>1.21-R0.2-deprecated+build.21</bungeecord-chat.version>
     </properties>
 
     <distributionManagement>
@@ -97,6 +99,20 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.md-5</groupId>
+            <artifactId>bungeecord-chat</artifactId>
+            <version>${bungeecord-chat.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
