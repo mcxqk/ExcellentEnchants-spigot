@@ -112,7 +112,15 @@ public class EnchantHolder<T extends CustomEnchantment> {
     }
 
     public void clearCache(LivingEntity entity) {
-        this.cachedEnchants.remove(entity.getUniqueId());
+        this.clearCache(entity.getUniqueId());
+    }
+
+    public void clearCache(UUID entityId) {
+        this.cachedEnchants.remove(entityId);
+    }
+
+    public void clearCache() {
+        this.cachedEnchants.clear();
     }
 
     public boolean isCacheable() {

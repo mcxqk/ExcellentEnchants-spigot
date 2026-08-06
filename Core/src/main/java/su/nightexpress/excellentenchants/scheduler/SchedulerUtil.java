@@ -300,7 +300,7 @@ public final class SchedulerUtil {
 
     private void bind(TrackedTask tracked, ScheduledTask scheduled) {
         if (scheduled == null) {
-            tracked.finish();
+            tracked.reject();
             return;
         }
         tracked.bind(new FoliaTask(scheduled));
@@ -308,7 +308,7 @@ public final class SchedulerUtil {
 
     private void bind(TrackedTask tracked, AdaptedTask scheduled) {
         if (scheduled == null) {
-            tracked.finish();
+            tracked.reject();
             return;
         }
         tracked.bind(new AdaptedSchedulerTask(scheduled));
@@ -388,6 +388,11 @@ public final class SchedulerUtil {
         private void finish() {
             if (!this.terminal.compareAndSet(false, true)) return;
             this.owner.remove(this);
+        }
+
+        private void reject() {
+            this.cancelled.set(true);
+            this.finish();
         }
 
         @Override

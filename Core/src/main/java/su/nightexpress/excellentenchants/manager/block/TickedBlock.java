@@ -2,16 +2,21 @@ package su.nightexpress.excellentenchants.manager.block;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.jspecify.annotations.NullMarked;
 
+import su.nightexpress.excellentenchants.scheduler.SchedulerUtil;
 import su.nightexpress.nightcore.util.EntityUtil;
 import su.nightexpress.nightcore.util.LocationUtil;
 import su.nightexpress.nightcore.util.TimeUtil;
 import su.nightexpress.nightcore.util.wrapper.UniParticle;
 
+import java.util.Objects;
+
 @NullMarked
 public class TickedBlock {
 
+    private final SchedulerUtil scheduler;
     private final Location location;
     private final Material originalType;
     private final long     lifeTime;
@@ -19,11 +24,13 @@ public class TickedBlock {
 
     private long livedTicks;
 
-    public TickedBlock(Location location, Material originalType, int seconds) {
-        this.location = location;
+    public TickedBlock(SchedulerUtil scheduler, Location location, Material originalType, int seconds) {
+        World world = Objects.requireNonNull(location.getWorld());
+        this.scheduler = scheduler;
+        this.location = location.clone();
         this.originalType = originalType;
         this.lifeTime = TimeUtil.secondsToTicks(seconds);
-        this.sourceId = EntityUtil.nextEntityId();
+        this.sourceId = EntityUtil.nextEntityId(world);
 
         this.livedTicks = 0;
     }
@@ -37,12 +44,14 @@ public class TickedBlock {
     public void sendDamageInfo(float progress) {
         if (!this.location.isWorldLoaded()) return;
 
-        this.location.getWorld().getPlayers().forEach(player -> {
-            player.sendBlockDamage(this.location, progress, this.sourceId);
-        });
+        Location snapshot = this.location.clone();
+        this.location.getWorld().getNearbyPlayers(this.location, 64D).forEach(player -> this.scheduler.runAtEntity(
+            player, () -> player.sendBlockDamage(snapshot, progress, this.sourceId)));
     }
 
     public void tick() {
+        if (!this.location.isWorldLoaded()) return;
+
         this.livedTicks++;
 
         if (this.isDead()) {
@@ -70,5 +79,9 @@ public class TickedBlock {
 
     public int getSourceId() {
         return this.sourceId;
+    }
+
+    public Location getLocation() {
+        return this.location.clone();
     }
 }

@@ -193,6 +193,15 @@ class SchedulerUtilTest {
     }
 
     @Test
+    void rejectedEntityTaskIsReportedAsCancelled() {
+        when(this.entityScheduler.runAtFixedRate(eq(this.plugin), any(), any(), anyLong(), anyLong())).thenReturn(null);
+
+        SchedulerTask task = this.scheduler.runAtEntityTimer(this.entity, this.action, mock(Runnable.class), 1L, 20L);
+
+        assertTrue(task.isCancelled());
+    }
+
+    @Test
     void paperFallbackUsesAdaptedSchedulerAndClampsDelay() {
         SchedulerUtil paper = new SchedulerUtil(this.plugin, false, this.ownership, this.regionScheduler,
             this.globalScheduler, this.asyncScheduler, this.fallback);
