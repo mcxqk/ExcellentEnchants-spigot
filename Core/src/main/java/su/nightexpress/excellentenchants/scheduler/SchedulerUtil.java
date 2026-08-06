@@ -76,6 +76,7 @@ public final class SchedulerUtil {
     }
 
     public SchedulerTask runAtEntity(Entity entity, Runnable task) {
+        if (this.isUnavailable()) return this.beginTask();
         if (this.isOwned(entity)) {
             task.run();
             return CompletedTask.INSTANCE;
@@ -144,6 +145,7 @@ public final class SchedulerUtil {
     }
 
     public SchedulerTask runAtRegion(Location location, Runnable task) {
+        if (this.isUnavailable()) return this.beginTask();
         if (this.isOwned(location)) {
             task.run();
             return CompletedTask.INSTANCE;
@@ -254,6 +256,7 @@ public final class SchedulerUtil {
     }
 
     public CompletableFuture<Boolean> teleport(Entity entity, Location location) {
+        if (this.isUnavailable()) return CompletableFuture.completedFuture(false);
         return entity.teleportAsync(location);
     }
 
@@ -288,14 +291,18 @@ public final class SchedulerUtil {
 
     private TrackedTask beginTask() {
         TrackedTask tracked = new TrackedTask(this.trackedTasks);
-        if (this.shutdown.get()) {
+        if (this.isUnavailable()) {
             tracked.cancel();
             return tracked;
         }
 
         this.trackedTasks.add(tracked);
-        if (this.shutdown.get()) tracked.cancel();
+        if (this.isUnavailable()) tracked.cancel();
         return tracked;
+    }
+
+    private boolean isUnavailable() {
+        return this.shutdown.get() || !this.plugin.isEnabled();
     }
 
     private void bind(TrackedTask tracked, ScheduledTask scheduled) {

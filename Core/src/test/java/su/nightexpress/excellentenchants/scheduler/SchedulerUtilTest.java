@@ -65,6 +65,7 @@ class SchedulerUtilTest {
         this.adaptedTask = mock(AdaptedTask.class);
         this.action = mock(Runnable.class);
 
+        when(this.plugin.isEnabled()).thenReturn(true);
         when(this.entity.getScheduler()).thenReturn(this.entityScheduler);
         when(this.entityScheduler.run(eq(this.plugin), any(), any(Runnable.class))).thenReturn(this.scheduledTask);
         when(this.entityScheduler.runDelayed(eq(this.plugin), any(), any(Runnable.class), anyLong())).thenReturn(
@@ -143,6 +144,17 @@ class SchedulerUtilTest {
 
         verify(this.globalScheduler).run(eq(this.plugin), any());
         verify(this.asyncScheduler).runNow(eq(this.plugin), any());
+    }
+
+    @Test
+    void rejectsTaskSubmissionWhenPluginIsDisabled() {
+        when(this.plugin.isEnabled()).thenReturn(false);
+
+        SchedulerTask task = this.scheduler.runAsync(this.action);
+
+        assertTrue(task.isCancelled());
+        verifyNoInteractions(this.asyncScheduler);
+        verifyNoInteractions(this.action);
     }
 
     @Test

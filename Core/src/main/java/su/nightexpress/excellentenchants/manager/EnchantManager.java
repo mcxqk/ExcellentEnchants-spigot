@@ -142,12 +142,12 @@ public class EnchantManager extends AbstractManager<EnchantsPlugin> {
         this.passiveTasks.values().forEach(SchedulerTask::cancel);
         this.passiveTasks.clear();
 
-        this.tickedBlocks.forEach(this::restoreTickedBlockOnShutdown);
+        this.tickedBlocks.values().forEach(activeBlock -> activeBlock.task().cancel());
         this.tickedBlocks.clear();
 
         this.explosions.clear();
         EnchantRegistry.getHolders().forEach(EnchantHolder::clearCache);
-        this.requestJournalSave();
+        this.saveJournalOnShutdown();
     }
 
     private void loadEnchants() {
@@ -450,22 +450,9 @@ public class EnchantManager extends AbstractManager<EnchantsPlugin> {
         });
     }
 
-    private void restoreTickedBlockOnShutdown(BlockKey key, ActiveBlock activeBlock) {
-        activeBlock.task().cancel();
-        Location location = activeBlock.block().getLocation();
-        Runnable restore = () -> {
-            activeBlock.block().sendDamageInfo(0F);
-            activeBlock.block().restore();
-            this.tickedBlockJournal.remove(key);
-            this.requestJournalSave();
-        };
-
-        if (this.plugin.schedulerUtil().isOwned(location)) restore.run();
-        else this.plugin.schedulerUtil().runAtRegion(location, restore);
-    }
-
     private void requestJournalSave() {
         this.journalDirty.set(true);
+        if (!this.active.get()) return;
         if (!this.journalLoaded.get()) return;
         if (!this.journalSaveRunning.compareAndSet(false, true)) return;
 
@@ -488,7 +475,21 @@ public class EnchantManager extends AbstractManager<EnchantsPlugin> {
         }
         finally {
             this.journalSaveRunning.set(false);
-            if (this.journalDirty.get()) this.requestJournalSave();
+            if (this.active.get() && this.journalDirty.get()) this.requestJournalSave();
+        }
+    }
+
+    private void saveJournalOnShutdown() {
+        this.journalDirty.set(false);
+        try {
+            if (!this.journalLoaded.get()) {
+                this.tickedBlockJournal.load();
+                this.journalLoaded.set(true);
+            }
+            this.tickedBlockJournal.save();
+        }
+        catch (Exception exception) {
+            this.plugin.warn("Could not save the ticked block recovery journal during shutdown.", exception);
         }
     }
 
