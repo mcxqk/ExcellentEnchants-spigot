@@ -109,13 +109,17 @@ public class DragonfireArrowsEnchant extends GameEnchantment implements ArrowEnc
             potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INSTANT_DAMAGE, 20, 0), true);
         });
 
-        ThrownPotion potion = shooter.launchProjectile(ThrownPotion.class);
+        ThrownPotion potion = location.getWorld().spawn(location, ThrownPotion.class);
         potion.setItem(itemStack);
-        potion.teleport(location);
+        if (shooter instanceof Entity entity && this.plugin.schedulerUtil().isOwned(entity)) {
+            potion.setShooter(shooter);
+        }
 
         AreaEffectCloud cloud = potion.getWorld().spawn(location, AreaEffectCloud.class);
         cloud.clearCustomEffects();
-        cloud.setSource(shooter);
+        if (shooter instanceof Entity entity && this.plugin.schedulerUtil().isOwned(entity)) {
+            cloud.setSource(shooter);
+        }
         cloud.setParticle(Particle.DRAGON_BREATH, 1F);
         cloud.setRadius((float) this.getFireRadius(level));
         cloud.setDuration(this.getFireDuration(level));
