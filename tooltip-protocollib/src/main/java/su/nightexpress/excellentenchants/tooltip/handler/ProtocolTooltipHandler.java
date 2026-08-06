@@ -75,7 +75,7 @@ public class ProtocolTooltipHandler implements TooltipHandler {
             Player player = event.getPlayer();
 
             if (player == null || event.isPlayerTemporary()) return;
-            if (!this.controller.isReadyForTooltipUpdate(player)) return;
+            if (!this.controller.isReadyForTooltipUpdate(player.getUniqueId())) return;
 
             PacketType type = packet.getType();
             if (type == PacketType.Play.Server.SET_SLOT || type == PacketType.Play.Server.SET_PLAYER_INVENTORY || type == PacketType.Play.Server.SET_CURSOR_ITEM) {

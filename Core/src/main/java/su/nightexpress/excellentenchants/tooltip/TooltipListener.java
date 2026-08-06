@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.jspecify.annotations.NullMarked;
 
@@ -21,11 +22,19 @@ public class TooltipListener extends AbstractListener<EnchantsPlugin> {
         this.manager = manager;
     }
 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        this.manager.clearPlayerState(player.getUniqueId());
+        this.manager.setCreative(player.getUniqueId(), player.getGameMode() == GameMode.CREATIVE);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onGameModeChange(PlayerGameModeChangeEvent event) {
         Player player = event.getPlayer();
         GameMode current = player.getGameMode();
         GameMode newGameMode = event.getNewGameMode();
+        this.manager.setCreative(player.getUniqueId(), newGameMode == GameMode.CREATIVE);
 
         // When enter Creative gamemode, force update all inventory to flush item's lore so they don't have enchant descriptions.
         if (newGameMode == GameMode.CREATIVE) {
@@ -38,6 +47,6 @@ public class TooltipListener extends AbstractListener<EnchantsPlugin> {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        this.manager.removeFromUpdateStopList(event.getPlayer());
+        this.manager.clearPlayerState(event.getPlayer().getUniqueId());
     }
 }

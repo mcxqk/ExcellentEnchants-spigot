@@ -1,6 +1,5 @@
 package su.nightexpress.excellentenchants.tooltip;
 
-import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -28,7 +27,7 @@ public class TooltipManager extends AbstractManager<EnchantsPlugin> implements T
 
     private final TooltipSettings             settings;
     private final Map<String, TooltipFactory> factoryMap;
-    private final Set<UUID>                   updateStopList;
+    private final TooltipPlayerState          playerState;
 
     private TooltipHandler handler;
 
@@ -36,7 +35,7 @@ public class TooltipManager extends AbstractManager<EnchantsPlugin> implements T
         super(plugin);
         this.settings = new TooltipSettings();
         this.factoryMap = new LinkedHashMap<>();
-        this.updateStopList = new HashSet<>();
+        this.playerState = new TooltipPlayerState();
     }
 
     @Override
@@ -55,7 +54,7 @@ public class TooltipManager extends AbstractManager<EnchantsPlugin> implements T
             this.handler = null;
         }
         this.factoryMap.clear();
-        this.updateStopList.clear();
+        this.playerState.clear();
     }
 
     private void loadFactories() {
@@ -89,23 +88,35 @@ public class TooltipManager extends AbstractManager<EnchantsPlugin> implements T
     @Override
     public void runInStopList(Player player, Runnable runnable) {
         this.addToUpdateStopList(player);
-        runnable.run();
-        this.removeFromUpdateStopList(player);
+        try {
+            runnable.run();
+        }
+        finally {
+            this.removeFromUpdateStopList(player);
+        }
     }
 
     @Override
     public void addToUpdateStopList(Player player) {
-        this.updateStopList.add(player.getUniqueId());
+        this.playerState.pause(player.getUniqueId());
     }
 
     @Override
     public void removeFromUpdateStopList(Player player) {
-        this.updateStopList.remove(player.getUniqueId());
+        this.playerState.resume(player.getUniqueId());
     }
 
     @Override
-    public boolean isReadyForTooltipUpdate(Player player) {
-        return !this.updateStopList.contains(player.getUniqueId()) && player.getGameMode() != GameMode.CREATIVE;
+    public boolean isReadyForTooltipUpdate(UUID playerId) {
+        return this.playerState.isReady(playerId);
+    }
+
+    public void setCreative(UUID playerId, boolean creative) {
+        this.playerState.setCreative(playerId, creative);
+    }
+
+    public void clearPlayerState(UUID playerId) {
+        this.playerState.clear(playerId);
     }
 
     @Override
