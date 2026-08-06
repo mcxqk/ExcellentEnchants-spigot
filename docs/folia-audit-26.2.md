@@ -97,6 +97,48 @@
 - 不修改插件名、主类、公开命令节点、权限和已有配置键；Tooltip 现有 `Player` API 保留兼容入口。
 - 修改后必须执行功能与范围、Folia 与性能、生命周期与资源三轮复核，并用真实 Luminol 26.2 启动日志验证加载和正常关闭。
 
+## 修改后逐项状态
+
+修改前调用链表保留原始 `must_fix` 分级作为审计基线，不覆盖历史问题。以下表格给出 Luminol 26.2 build 726 目标代码的当前结论，每条原 `must_fix` 均已更新为 `fixed`：
+
+| 当前状态 | 原问题 | 修改后文件与方法 | 验证证据 |
+|---|---|---|---|
+| fixed | 箭矢粒子从 Async 线程访问 Arrow | `EnchantManager#startArrowEffectsTask/tickArrowEffects` 使用箭矢 EntityScheduler，索引只保存 UUID 与可取消句柄 | `SchedulerUtilTest`、`scripts/verify-folia.ps1`、Core 测试 |
+| fixed | Global 扫描全部世界实体执行被动附魔 | `PassiveEntityListener` 与 `EnchantManager#startPassiveTask` 为每个实体维护 EntityScheduler 任务，不再枚举 `World#getLivingEntities` | 周期入口静态复核、Core 测试 |
+| fixed | Global tick 临时方块 | `EnchantManager#addTickedBlock/startTickedBlockTask` 和 `TickedBlock#tick/restore` 绑定 Block Region；`TickedBlockJournal` 异步保存不可变快照 | `BlockKeyTest`、`TickedBlockJournalTest`、Core 测试 |
+| fixed | Tooltip 下一 tick 使用 NightCore Global | `TooltipListener#onGameModeChange` 使用 `SchedulerUtil#runAtEntityDelayed`，延迟强制至少 1 tick | `SchedulerUtilTest`、旧调度入口扫描 0 命中 |
+| fixed | 附魔台事件跨 tick 捕获 Inventory 与事件对象 | `GenericListener#onChargesFillOnEnchant` 在事件上下文复制普通附魔 Map，再调度到 Enchanter Entity | 旧调度入口扫描 0 命中、Core 编译 |
+| fixed | 箭矢效果清理捕获 Arrow 并进入 Global | `EnchantListener#onProjectileHit` 提交 Arrow Entity 延迟任务，Manager 索引以 UUID 为键并有退休清理 | `SchedulerUtilTest`、Core 测试 |
+| fixed | 铁砧视图从 Global 修改 | `AnvilListener#handleRecharge` 调度到 Viewer Entity，并验证仍为同一 View | 旧调度入口扫描 0 命中、Core 编译 |
+| fixed | 爆炸清理闭包强持有 LivingEntity | `EnchantManager#handleEnchantExplosion` 在原上下文快照 UUID，使用 Global 延迟清理并取消 shutdown 任务 | Core 测试、生命周期复核 |
+| fixed | StoppingForce 从 Global 写 victim velocity | `StoppingForceEnchant#onProtect` 使用 Victim Entity 延迟任务 | 旧调度入口扫描 0 命中、Core 编译 |
+| fixed | AutoReel 跨事件生命周期访问 Player/FishHook | `AutoReelEnchant#onFishing` 使用 FishHook Entity 延迟任务，并在执行时验证 Player 同属当前 Region、槽位鱼竿未变化 | 所有权静态复核、Core 编译 |
+| fixed | Replanter 从 Global 写 Block | `ReplanterEnchant#onBreak` 使用目标 Block Region 延迟任务，并验证方块仍为空 | 旧调度入口扫描 0 命中、Core 编译 |
+| fixed | Lingering 同步传送 ThrownPotion | `LingeringEnchant#createCloud` 在命中 Location 直接生成药水和效果云；只在当前 Region 拥有 shooter 时设置来源 | 同步 `.teleport(` 扫描 0 命中、Core 测试 |
+| fixed | Dragonfire 同步传送 ThrownPotion | `DragonfireArrowsEnchant#createCloud` 在命中 Location 直接生成药水和效果云；只在当前 Region 拥有 shooter 时设置来源 | 同步 `.teleport(` 扫描 0 命中、Core 测试 |
+| fixed | EnchantHolder 共享 HashMap 与可变槽位 Map | `EnchantHolder.cachedEnchants/enchants` 使用 `ConcurrentHashMap`，槽位状态原子替换为不可变 Map 快照，公开 getter 返回不可变快照 | `EnchantHolderTest` 5 项通过 |
+| fixed | tickedBlocks 与 explosions 使用 HashMap | 两个索引均使用 `ConcurrentHashMap`；方块键改为不可变 `BlockKey`，爆炸不再保存无用 LivingEntity 引用 | `BlockKeyTest`、Core 测试、生命周期复核 |
+| fixed | EnchantRegistry 静态 HashMap | `EnchantRegistry.BY_KEY/BY_ID/HOLDERS` 使用并发 Map 并返回不可变快照 | Core 测试、共享集合静态复核 |
+| fixed | Tooltip 普通 HashSet 与网络线程 GameMode 读取 | `TooltipPlayerState` 使用两个 `ConcurrentHashMap.newKeySet()` 保存 paused/creative UUID；Player Join/GameMode/Quit 在 Entity 事件上下文维护；网络回调只查询 UUID | `TooltipPlayerStateTest` 2 项通过，两个 tooltip 模块编译 |
+| fixed | BaseCommands 从 sender 上下文访问目标玩家和热重载 | `BaseCommands#runAtPlayer/send` 分别路由目标 Player 与 sender；reload 节点保留但明确拒绝热重载 | `SchedulerUtilTest#routesRemotePlayerSenderToEntityScheduler`、`doReload(` 扫描 0 命中 |
+| fixed | ProjectileHit 访问远程 shooter | `EnchantListener#onProjectileHit` 用 `SchedulerUtil#isOwned` 门禁，不拥有远程 shooter 时只跳过双实体即时效果 | 所有权调用链复核、Core 编译 |
+| fixed | Damage 访问远程 shooter/damager | `EnchantListener#onDamageByEntity` 对 shooter、damager 和 causing damager 分别执行当前 Region 所有权门禁 | 所有权调用链复核、Core 编译 |
+| fixed | Death 访问远程 killer | `EnchantListener#onEntityDeath` 在 killer 不属于死亡实体 Region 时只跳过 KillEnchant 路径 | 所有权调用链复核、Core 编译 |
+| fixed | PlaceholderAPI 未知线程读取玩家背包 | `PlaceholderHook#onPlaceholderRequest` 在背包读取前调用 `SchedulerUtil#isOwned(player)`，不拥有时返回 null | Core 编译、Placeholder 调用链复核 |
+
+## 修改后验证与限制
+
+- `scripts/verify-folia.ps1`：退出码 0，输出 `Folia static verification passed`。直接 Bukkit/NightCore 调度入口、同步 teleport、五种指定不可用事件、阻塞 Future 等待和新增 Java 源码注释均为 0 命中。
+- `mvn clean verify`：Java 25，6 个目标模块全部成功；Core 共 26 个测试，0 failures、0 errors、0 skipped；Maven 退出码 0。
+- 最终 JAR：`target/ExcellentEnchants-5.4.3.jar`，447137 字节，SHA-256 `A1593FD37685DB7EE9845DE81C90E54DEFD6CCA89F78A962F28A8CB8216C58D8`。
+- JAR 内容：包含 `PaperEnchantsBootstrap`、`SchedulerUtil`、`plugin.yml` 和 `paper-plugin.yml`；不包含 `SpigotEnchantsBootstrap` 或 `mc_26_1_2` 类。两个描述文件都只出现一次 `folia-supported: true` 和 `cloudfl4re`。
+- NightCore 2.16.4 实际没有计划草稿引用的 `Placeholders.GENERIC_ERROR`。reload 命令直接发送完整固定拒绝文本，保持原命令节点并以实际依赖 API 为准。
+- PacketEvents 2.11.1 直接从 `User#getUUID` 提供 UUID；ProtocolLib 5.4.0 的 `PacketEvent` 只公开 Player，因此 ProtocolLib 路径只调用 `Player#getUniqueId`，不读取 GameMode、Inventory 或其他活状态。ProtocolLib 自身回调线程与 packet clone 契约仍为 `uncertain`。
+- 临时方块日志对未加载世界的记录会保留并告警，不监听本项目禁止新增的 `WorldLoadEvent`；未加载世界随后重新加载时的真实恢复行为在启动测试前保持 `uncertain`。
+- 远程 shooter、damager、causing damager 或 killer 不属于当前 Region 时，相关双实体即时附魔效果会跳过，不跨 Region 重放已结束事件。
+- 热重载被明确拒绝，必须完整重启服务器。
+- `folia-supported: true` 只允许插件加载，不证明线程安全；真实 Luminol 启停测试、真实多玩家跨 Region 压力测试和真实 MythicMobs 联调在对应证据产生前不得标记为已验证。
+
 ## 构建基线
 
 - 修改前目标：Java 21、Paper API `26.1.2.build.51-beta`、NightCore `2.15.3`。
