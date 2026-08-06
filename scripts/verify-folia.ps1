@@ -47,8 +47,12 @@ Assert-NoMatches 'Blocking Future wait found' @(
     'Core/src/main/java'
 )
 
+$savedErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 $commentDiff = & git diff '4bd372e5a73c5055d935d93c55ba7717393dd0e1' -- '*.java' 2>&1
-if ($LASTEXITCODE -ne 0) {
+$commentDiffExitCode = $LASTEXITCODE
+$ErrorActionPreference = $savedErrorActionPreference
+if ($commentDiffExitCode -ne 0) {
     $failures.Add("Java comment diff failed`n$($commentDiff -join "`n")")
 }
 else {

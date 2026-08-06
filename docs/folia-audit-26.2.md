@@ -4,7 +4,7 @@
 
 - 目标核心：Luminol 26.2 build 726 stable，Minecraft 26.2，Java 25，协议 776。
 - 审计基线：ExcellentEnchants 5.4.3，上游提交 `4bd372e5a73c5055d935d93c55ba7717393dd0e1`。
-- 本文是修改前静态审计，不等同于真实 Luminol 服务端运行测试。
+- 修改前表格是静态审计基线；修改后章节包含真实 Luminol 启停证据，但不等同于多玩家跨 Region 压力测试。
 - `folia-supported: true` 只允许插件加载，不能证明线程安全或功能完整。
 - 本地 Luminol API JAR 和服务端 JAR 是版本事实的最终依据；升级 Luminol、Paper、NightCore 或插件依赖后必须重新审计。
 - `must_fix` 表示违反本项目 Folia 硬规则；`suggested_fix` 表示已有风险但不是明确硬失败；`defer` 表示超出本次范围；`uncertain` 表示缺少第三方运行契约或日志，不能推定安全。
@@ -129,15 +129,33 @@
 ## 修改后验证与限制
 
 - `scripts/verify-folia.ps1`：退出码 0，输出 `Folia static verification passed`。直接 Bukkit/NightCore 调度入口、同步 teleport、五种指定不可用事件、阻塞 Future 等待和新增 Java 源码注释均为 0 命中。
-- `mvn clean verify`：Java 25，6 个目标模块全部成功；Core 共 26 个测试，0 failures、0 errors、0 skipped；Maven 退出码 0。
-- 最终 JAR：`target/ExcellentEnchants-5.4.3.jar`，447137 字节，SHA-256 `A1593FD37685DB7EE9845DE81C90E54DEFD6CCA89F78A962F28A8CB8216C58D8`。
+- `mvn clean verify`：Java 25，6 个目标模块全部成功；Core 共 27 个测试，0 failures、0 errors、0 skipped；Maven 退出码 0。
+- 最终 JAR：`target/ExcellentEnchants-5.4.3.jar`，447233 字节，SHA-256 `98ED2D99FD5D1C68F21B410712DE08828134F62E5F00AD2788D728876CEA80CF`。
 - JAR 内容：包含 `PaperEnchantsBootstrap`、`SchedulerUtil`、`plugin.yml` 和 `paper-plugin.yml`；不包含 `SpigotEnchantsBootstrap` 或 `mc_26_1_2` 类。两个描述文件都只出现一次 `folia-supported: true` 和 `cloudfl4re`。
 - NightCore 2.16.4 实际没有计划草稿引用的 `Placeholders.GENERIC_ERROR`。reload 命令直接发送完整固定拒绝文本，保持原命令节点并以实际依赖 API 为准。
 - PacketEvents 2.11.1 直接从 `User#getUUID` 提供 UUID；ProtocolLib 5.4.0 的 `PacketEvent` 只公开 Player，因此 ProtocolLib 路径只调用 `Player#getUniqueId`，不读取 GameMode、Inventory 或其他活状态。ProtocolLib 自身回调线程与 packet clone 契约仍为 `uncertain`。
-- 临时方块日志对未加载世界的记录会保留并告警，不监听本项目禁止新增的 `WorldLoadEvent`；未加载世界随后重新加载时的真实恢复行为在启动测试前保持 `uncertain`。
+- 临时方块日志对未加载世界的记录会保留并告警，不监听本项目禁止新增的 `WorldLoadEvent`；未加载世界随后重新加载时的真实恢复行为仍为 `uncertain`。
 - 远程 shooter、damager、causing damager 或 killer 不属于当前 Region 时，相关双实体即时附魔效果会跳过，不跨 Region 重放已结束事件。
 - 热重载被明确拒绝，必须完整重启服务器。
-- `folia-supported: true` 只允许插件加载，不证明线程安全；真实 Luminol 启停测试、真实多玩家跨 Region 压力测试和真实 MythicMobs 联调在对应证据产生前不得标记为已验证。
+- `folia-supported: true` 只允许插件加载，不证明线程安全；真实多玩家跨 Region 压力测试、真实临时方块关闭恢复、ProtocolLib/PacketEvents 回调和真实 MythicMobs 联调在对应证据产生前不得标记为已验证。
+
+## 真实 Luminol 26.2 启停结果
+
+- 测试脚本：`scripts/smoke-luminol.ps1`。隔离目录为 `%TEMP%\excellentenchants-luminol-smoke`，核心缓存只从 `E:\down\luminolpaperclip\.cache` 复制，所有新增下载显式使用 `localhost:7897`。
+- 核心日志：Luminol `26.2-726-dev/26.2@81b92e0`，实现 API `26.2.build.726-stable`，Java `25.0.4`。
+- 依赖日志：Paper 初始化两个插件，NightCore `2.16.4` 与 ExcellentEnchants `5.4.3` 均成功加载和启用。NightCore Maven 的 `main-2.16.4.jar` 不是完整运行包并缺少 `LowerCase`；脚本因此改用官方 Hangar 的完整 Paper 发布 JAR，并在启动前校验该类存在。
+- 功能日志：ExcellentEnchants 报告加载 81 个附魔；`plugins` 与 `version ExcellentEnchants` 可用；`eenchants reload` 返回完整的安全拒绝文本。
+- 关闭日志：Luminol 正常收到 `stop`，Region scheduler 停止，ExcellentEnchants 和 NightCore 依次禁用，世界与 RegionFile I/O 完成保存，进程退出码 0。
+- 首次关闭测试暴露 `EnchantManager#onShutdown -> requestJournalSave -> SchedulerUtil#runAsync` 在插件禁用后注册任务。修复后 `SchedulerUtil` 拒绝 disabled/shutdown 状态的新任务；Manager 取消 Region 任务、保留恢复记录并在关闭线程同步保存不可变日志，不再访问 Region 活状态或提交新调度。
+- 最终日志 `target/smoke-luminol.log` 为 13079 字节，SHA-256 `B12B31891EF617FA61A5444F055FF6ADFD1079DFDA369F3D2391A8F1C17687AB`。线程检查、跨 Region、`ConcurrentModificationException`、`IllegalStateException`、类/方法缺失、插件启用或禁用失败、disabled 后注册任务等红线均为 0 命中。
+- NightCore 尝试下载 `zh` 语言资产失败后按日志回退到英文；NightCore 数据库、ExcellentEnchants 附魔加载、命令和关闭均继续成功。这是依赖插件的可选语言资产信息，不是 ExcellentEnchants 加载失败。
+- 冒烟环境禁用了 EnchantTooltip，未安装 ProtocolLib、PacketEvents、PlaceholderAPI 或 MythicMobs，也没有真实玩家进入。因此第三方 packet 回调契约、PlaceholderAPI 调用线程、MythicMobs 运行联调和多玩家跨 Region 效果仍为 `uncertain`。
+
+## 三轮修改后审查
+
+1. 功能与范围：基线与当前命令节点集合均为 `book, disenchant, enchant, givefuel, list, randombook, reload`；插件名、主类、版本、权限类和 Config 键保持不变。公开 `TooltipController#isReadyForTooltipUpdate(Player)` 以 default 桥接保留，新增 UUID 入口供网络快照使用。
+2. Folia 与性能：`scripts/verify-folia.ps1` 退出码 0；所有业务调度通过 `SchedulerUtil`；全世界实体扫描、同步 teleport、指定不可用事件、阻塞等待和新增 Java 源码注释均为 0 命中；`Bukkit.isPrimaryThread()` 只存在于包装层非 Folia 分支。
+3. 生命周期与资源：Manager 在关闭时取消箭矢、被动实体与临时方块任务，清理并发索引和 Holder 缓存；Tooltip handler 先注销再清 UUID 状态；Placeholder expansion 注销；Scheduler 最后取消所有跟踪任务并拒绝 disabled 后的新提交；Journal 同步关闭保存经过真实禁用日志验证。
 
 ## 构建基线
 
