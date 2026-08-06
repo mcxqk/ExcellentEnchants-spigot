@@ -87,3 +87,17 @@
 - Luminol 上保留 reload 命令节点但拒绝热重载，要求完整重启，避免旧监听器、任务和网络回调继续存活。
 - 不修改插件名、主类、公开命令节点、权限和已有配置键；Tooltip 现有 `Player` API 保留兼容入口。
 - 修改后必须执行功能与范围、Folia 与性能、生命周期与资源三轮复核，并用真实 Luminol 26.2 启动日志验证加载和正常关闭。
+
+## 构建基线
+
+- 修改前目标：Java 21、Paper API `26.1.2.build.51-beta`、NightCore `2.15.3`。
+- 修改前反应堆：10 个模块，包含 4 个旧 Spigot/NMS 版本模块。
+- 基线命令：Maven 3.9.11、Java 25.0.4、隔离本地仓库、HTTP/HTTPS 均通过 `localhost:7897`。
+- 基线结果：退出码 1，API 模块依赖解析失败，`su.nightexpress.nightcore:main:2.15.3` 无法从已配置仓库取得。
+- 基线产物：0 个 target JAR。
+- 即使旧构建成功也不满足目标，因为其核心 API、Java 级别和反应堆版本均不是 Luminol 26.2 build 726。
+- Luminol API `26.2.build.726-stable` 未发布在已验证的公开 Maven 仓库；本次使用 paperclip 缓存中的同坐标 JAR，SHA-256 为 `1913620BA779E465F89144CA316F516E53C020B3B507F9F8BACC1EE3F78CAB77`。
+- paperclip 只缓存 API JAR、没有 POM；构建显式补充其方法签名所需并与 build 726 清单一致的 Adventure API、MiniMessage、Adventure SLF4J Logger `5.2.0`、Guava `33.6.0-jre` 和 SLF4J API `2.0.18`，它们均为 `provided`。
+- 迁移后反应堆：6 个模块；API、PacketEvents、ProtocolLib、MythicMobs 兼容层和 Core 全部通过 Java 25 编译与打包。
+- 迁移后产物：`target/ExcellentEnchants-5.4.3.jar`，417893 字节；包含 Paper Bootstrap 和主类，不包含旧 Spigot/NMS 类。
+- MythicMobs 官方 5.6.0 JAR 在代理下持续无法完成下载；本次只用不进入产物的临时签名 JAR验证现有一处 API 调用可编译。真实 MythicMobs 运行联调仍为 `uncertain`。
