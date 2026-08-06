@@ -78,6 +78,15 @@
 
 本项目 Folia 规则将这五种事件判定为在 Folia 层无可调用 API，因此本次不新增任何相关监听器。本地 Luminol 26.2 build 726 API JAR 包含对应 Bukkit 事件类只说明编译类型存在，不据此声明其 Folia 运行时可用。
 
+## 跨实体事件降级行为
+
+目标版本：Luminol 26.2 build 726。
+
+- `EnchantListener#onProjectileHit`：当远程 shooter 不属于当前 Projectile Region 时，跳过 Arrow/Trident 的 `onHit` 附魔调用；箭矢效果清理仍提交到箭矢 Entity context。
+- `EnchantListener#onDamageByEntity`：当 shooter、直接 damager 或 causing damager 不属于当前 Victim Region 时，跳过需要同时访问两端活状态的对应攻击、箭矢或防御附魔调用；事件本身不因门禁而取消，也不跨 Region 延迟重放。
+- `EnchantListener#onEntityDeath`：当 killer 不属于死亡实体当前 Region 时，仅跳过 killer 的装备读取与 KillEnchant 调用；死亡实体自身的 Inventory/Death 附魔路径继续执行。
+- 原因：这些 Bukkit 事件必须在当前 tick 内完成。跨 Region 调度至少延迟 1 tick，届时事件对象已失效，不能安全重放或继续修改。
+
 ## 修改目标与边界
 
 - 一次性检测并缓存 Folia，业务代码只使用 `SchedulerUtil`，不反射构造调度调用。

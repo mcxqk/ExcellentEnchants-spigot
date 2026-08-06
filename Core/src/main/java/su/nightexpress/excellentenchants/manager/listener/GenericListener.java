@@ -2,7 +2,9 @@ package su.nightexpress.excellentenchants.manager.listener;
 
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -20,6 +22,8 @@ import su.nightexpress.excellentenchants.EnchantsUtils;
 import su.nightexpress.excellentenchants.config.Config;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
 import su.nightexpress.nightcore.manager.AbstractListener;
+
+import java.util.Map;
 
 @NullMarked
 public class GenericListener extends AbstractListener<EnchantsPlugin> {
@@ -40,18 +44,21 @@ public class GenericListener extends AbstractListener<EnchantsPlugin> {
     public void onChargesFillOnEnchant(EnchantItemEvent event) {
         if (!Config.isChargesEnabled()) return;
 
-        this.plugin.runTask(() -> {
-            Inventory inventory = event.getInventory();
+        Player player = event.getEnchanter();
+        Inventory inventory = event.getInventory();
+        Map<Enchantment, Integer> enchants = Map.copyOf(event.getEnchantsToAdd());
+        this.plugin.schedulerUtil().runAtEntityDelayed(player, () -> {
+            if (!player.getOpenInventory().getTopInventory().equals(inventory)) return;
 
             ItemStack result = inventory.getItem(0);
             if (result == null) return;
 
-            event.getEnchantsToAdd().forEach((enchantment, level) -> {
+            enchants.forEach((enchantment, level) -> {
                 EnchantsUtils.restoreCharges(result, enchantment, level);
             });
 
             inventory.setItem(0, result);
-        });
+        }, 1L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

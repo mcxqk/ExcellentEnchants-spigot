@@ -55,9 +55,8 @@ public class StoppingForceEnchant extends GameEnchantment implements DefendEncha
                              ItemStack weapon, int level) {
         double reduction = 1D - Math.max(0, this.getKnockbackReduction(level));
 
-        this.plugin.runTask(() -> {
-            victim.setVelocity(victim.getVelocity().multiply(reduction));
-        });
+        this.plugin.schedulerUtil().runAtEntityDelayed(victim,
+            () -> victim.setVelocity(victim.getVelocity().multiply(reduction)), 1L);
         return true;
     }
 }

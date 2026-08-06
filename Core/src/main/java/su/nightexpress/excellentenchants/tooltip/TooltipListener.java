@@ -32,7 +32,7 @@ public class TooltipListener extends AbstractListener<EnchantsPlugin> {
             this.manager.runInStopList(player, player::updateInventory);
         }
         else if (current == GameMode.CREATIVE) {
-            this.plugin.runTask(player::updateInventory);
+            this.plugin.schedulerUtil().runAtEntityDelayed(player, player::updateInventory, 1L);
         }
     }
 

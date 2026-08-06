@@ -1,5 +1,6 @@
 package su.nightexpress.excellentenchants.enchantment.tool;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -152,11 +153,16 @@ public class ReplanterEnchant extends GameEnchantment implements InteractEnchant
 
         // Replant the gathered crops with a new one.
         if (this.takeSeeds(player, dataPlant.getPlacementMaterial())) {
-            plugin.runTask(() -> {
-                blockPlant.setType(plant.getMaterial());
-                plant.setAge(0);
-                blockPlant.setBlockData(plant);
-            });
+            Location plantLocation = blockPlant.getLocation();
+            Material plantMaterial = plant.getMaterial();
+            plant.setAge(0);
+            BlockData replanted = plant.clone();
+            this.plugin.schedulerUtil().runAtRegionDelayed(plantLocation, () -> {
+                Block target = plantLocation.getBlock();
+                if (!target.isEmpty()) return;
+                target.setType(plantMaterial);
+                target.setBlockData(replanted);
+            }, 1L);
         }
         return true;
     }

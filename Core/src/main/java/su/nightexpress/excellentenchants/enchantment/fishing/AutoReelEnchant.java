@@ -1,6 +1,7 @@
 package su.nightexpress.excellentenchants.enchantment.fishing;
 
 import org.bukkit.Material;
+import org.bukkit.entity.FishHook;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -15,6 +16,7 @@ import su.nightexpress.excellentenchants.enchantment.EnchantContext;
 import su.nightexpress.excellentenchants.enchantment.GameEnchantment;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
 import su.nightexpress.nightcore.config.FileConfig;
+import su.nightexpress.nightcore.util.EntityUtil;
 
 import java.nio.file.Path;
 
@@ -44,14 +46,20 @@ public class AutoReelEnchant extends GameEnchantment implements FishingEnchant {
         EquipmentSlot slot = EnchantsUtils.getItemHand(player, Material.FISHING_ROD);
         if (slot == null) return false;
 
-        this.plugin.runTask(() -> {
-            if (event.isCancelled()) return;
-            if (!event.getHook().isValid()) return;
+        FishHook hook = event.getHook();
+        ItemStack rodSnapshot = itemStack.clone();
+        this.plugin.schedulerUtil().runAtEntityDelayed(hook, () -> {
+            if (!hook.isValid()) return;
+            if (!this.plugin.schedulerUtil().isOwned(player)) return;
+
+            ItemStack rod = EntityUtil.getItemInSlot(player, slot);
+            if (rod == null || rod.getType() != Material.FISHING_ROD) return;
+            if (!rod.isSimilar(rodSnapshot)) return;
 
             player.swingHand(slot);
-            event.getHook().retrieve(slot);
-            player.damageItemStack(itemStack, 1);
-        });
+            hook.retrieve(slot);
+            player.damageItemStack(rod, 1);
+        }, 1L);
         return true;
     }
 }
