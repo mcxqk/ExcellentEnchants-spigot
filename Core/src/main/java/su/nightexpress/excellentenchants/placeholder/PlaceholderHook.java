@@ -49,7 +49,7 @@ public class PlaceholderHook {
         @Override
 
         public String getAuthor() {
-            return this.plugin.getDescription().getAuthors().getFirst();
+            return String.join(", ", this.plugin.getDescription().getAuthors());
         }
 
         @Override
@@ -72,6 +72,7 @@ public class PlaceholderHook {
 
                 EquipmentSlot slot = Enums.get(chargesSplit[0], EquipmentSlot.class);
                 if (slot == null) return null;
+                if (!this.plugin.schedulerUtil().isOwned(player)) return null;
 
                 ItemStack itemStack = player.getInventory().getItem(slot);
                 if (itemStack == null || itemStack.getType().isAir()) return "-";

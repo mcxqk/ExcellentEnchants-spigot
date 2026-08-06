@@ -4,6 +4,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.NullMarked;
 
+import java.util.UUID;
+
 
 @NullMarked
 public interface TooltipController {
@@ -12,7 +14,11 @@ public interface TooltipController {
 
     ItemStack addDescription(ItemStack itemStack);
 
-    boolean isReadyForTooltipUpdate(Player player);
+    boolean isReadyForTooltipUpdate(UUID playerId);
+
+    default boolean isReadyForTooltipUpdate(Player player) {
+        return this.isReadyForTooltipUpdate(player.getUniqueId());
+    }
 
     boolean isEnchantTooltipAllowed(ItemStack item);
 

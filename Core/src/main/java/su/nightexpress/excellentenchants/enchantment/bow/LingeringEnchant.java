@@ -92,13 +92,17 @@ public class LingeringEnchant extends GameEnchantment implements ArrowEnchant {
             }
         });
 
-        ThrownPotion potion = shooter.launchProjectile(ThrownPotion.class);
+        ThrownPotion potion = location.getWorld().spawn(location, ThrownPotion.class);
         potion.setItem(item);
-        potion.teleport(location);
+        if (shooter instanceof Entity entity && this.plugin.schedulerUtil().isOwned(entity)) {
+            potion.setShooter(shooter);
+        }
 
         AreaEffectCloud cloud = potion.getWorld().spawn(location, AreaEffectCloud.class);
         cloud.clearCustomEffects();
-        cloud.setSource(shooter);
+        if (shooter instanceof Entity entity && this.plugin.schedulerUtil().isOwned(entity)) {
+            cloud.setSource(shooter);
+        }
         cloud.setWaitTime(10);
         cloud.setRadius(3F); // 3.0
         cloud.setRadiusOnUse(-0.5F);

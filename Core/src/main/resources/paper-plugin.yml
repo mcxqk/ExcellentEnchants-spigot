@@ -2,6 +2,8 @@ main: su.nightexpress.excellentenchants.EnchantsPlugin
 bootstrapper: su.nightexpress.excellentenchants.bridge.paper.PaperEnchantsBootstrap
 name: ExcellentEnchants
 version: '${project.version}'
+authors: [ NightExpress, cloudfl4re ]
+folia-supported: true
 description: A lot of new enchantments properly integrated into the server!
 api-version: '1.21'
 #loader: io.papermc.testplugin.TestPluginLoader

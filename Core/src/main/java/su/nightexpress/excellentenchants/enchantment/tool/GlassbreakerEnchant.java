@@ -25,17 +25,15 @@ import su.nightexpress.nightcore.util.sound.VanillaSound;
 import su.nightexpress.nightcore.util.wrapper.UniParticle;
 
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @NullMarked
 public class GlassbreakerEnchant extends GameEnchantment implements InteractEnchant {
 
-    private static final Set<Material> GLASS = new HashSet<>();
-
-    static {
-        BukkitThing.getMaterials().stream().filter(GlassbreakerEnchant::isGlass).forEach(GLASS::add);
-    }
+    private static final Set<Material> GLASS = BukkitThing.getMaterials().stream()
+        .filter(GlassbreakerEnchant::isGlass)
+        .collect(Collectors.toUnmodifiableSet());
 
     private static boolean isGlass(Material material) {
         if (!material.isBlock()) return false;

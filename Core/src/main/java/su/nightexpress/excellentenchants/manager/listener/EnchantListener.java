@@ -103,6 +103,7 @@ public class EnchantListener extends AbstractListener<EnchantsPlugin> {
         Projectile projectile = event.getEntity();
         if (!(projectile instanceof Trident trident)) return;
         if (!(projectile.getShooter() instanceof LivingEntity entity)) return;
+        if (!this.plugin.schedulerUtil().isOwned(entity)) return;
 
         ItemStack weapon = trident.getWeapon();
         if (weapon == null) return;
@@ -127,22 +128,23 @@ public class EnchantListener extends AbstractListener<EnchantsPlugin> {
     public void onProjectileHit(ProjectileHitEvent event) {
         Projectile projectile = event.getEntity();
         if (!(projectile instanceof AbstractArrow abstractArrow)) return;
-        if (!(projectile.getShooter() instanceof LivingEntity shooter)) return;
+        this.plugin.schedulerUtil().runAtEntityDelayed(abstractArrow,
+            () -> this.manager.removeArrowEffects(abstractArrow), 1L);
 
-        if (abstractArrow instanceof Arrow arrow) {
-            this.manager.handleArrowEnchants(arrow, EnchantRegistry.ARROW, (item, enchant, level) -> {
-                enchant.onHit(event, shooter, arrow, level);
-                return false;
-            });
+        if (projectile.getShooter() instanceof LivingEntity shooter && this.plugin.schedulerUtil().isOwned(shooter)) {
+            if (abstractArrow instanceof Arrow arrow) {
+                this.manager.handleArrowEnchants(arrow, EnchantRegistry.ARROW, (item, enchant, level) -> {
+                    enchant.onHit(event, shooter, arrow, level);
+                    return false;
+                });
+            }
+            else if (abstractArrow instanceof Trident trident) {
+                this.manager.handleArrowEnchants(trident, EnchantRegistry.TRIDENT, (item, enchant, level) -> {
+                    enchant.onHit(event, shooter, trident, level);
+                    return false;
+                });
+            }
         }
-        else if (abstractArrow instanceof Trident trident) {
-            this.manager.handleArrowEnchants(trident, EnchantRegistry.TRIDENT, (item, enchant, level) -> {
-                enchant.onHit(event, shooter, trident, level);
-                return false;
-            });
-        }
-
-        this.plugin.runTask(() -> this.manager.removeArrowEffects(abstractArrow));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -193,33 +195,36 @@ public class EnchantListener extends AbstractListener<EnchantsPlugin> {
         Entity directDamager = source.getDirectEntity();
 
         if (directDamager instanceof AbstractArrow abstractArrow) {
-            if (!(abstractArrow.getShooter() instanceof LivingEntity shooter)) return;
-
-            if (abstractArrow instanceof Arrow arrow) {
-                this.manager.handleArrowEnchants(arrow, EnchantRegistry.ARROW, (item, enchant, level) -> {
-                    enchant.onDamage(event, shooter, victim, arrow, level);
-                    return false;
-                });
-            }
-            else if (abstractArrow instanceof Trident trident) {
-                this.manager.handleArrowEnchants(trident, EnchantRegistry.TRIDENT, (item, enchant, level) -> {
-                    enchant.onDamage(event, shooter, victim, trident, level);
-                    return false;
-                });
+            if (abstractArrow.getShooter() instanceof LivingEntity shooter && this.plugin.schedulerUtil().isOwned(
+                shooter)) {
+                if (abstractArrow instanceof Arrow arrow) {
+                    this.manager.handleArrowEnchants(arrow, EnchantRegistry.ARROW, (item, enchant, level) -> {
+                        enchant.onDamage(event, shooter, victim, arrow, level);
+                        return false;
+                    });
+                }
+                else if (abstractArrow instanceof Trident trident) {
+                    this.manager.handleArrowEnchants(trident, EnchantRegistry.TRIDENT, (item, enchant, level) -> {
+                        enchant.onDamage(event, shooter, victim, trident, level);
+                        return false;
+                    });
+                }
             }
         }
         else if (directDamager instanceof LivingEntity damager) {
             if (source.getDamageType() == DamageType.THORNS) return;
 
-            this.manager.handleInSlot(damager, EquipmentSlot.HAND, EnchantRegistry.ATTACK, (item, enchant,
-                                                                                            level) -> enchant.onAttack(
-                                                                                                event, damager, victim,
-                                                                                                item, level));
+            if (this.plugin.schedulerUtil().isOwned(damager)) {
+                this.manager.handleInSlot(damager, EquipmentSlot.HAND, EnchantRegistry.ATTACK, (item, enchant,
+                                                                                                level) -> enchant
+                    .onAttack(event, damager, victim, item, level));
+            }
         }
 
         if (source.getCausingEntity() instanceof LivingEntity damager) {
             if (source.getDamageType() == DamageType.THORNS) return;
             if (damager == victim) return;
+            if (!this.plugin.schedulerUtil().isOwned(damager)) return;
 
             this.manager.handleInSlots(victim, ARMOR_SLOTS, EnchantRegistry.DEFEND, (item, enchant, level) -> enchant
                 .onProtect(event, damager, victim, item, level));
@@ -237,7 +242,7 @@ public class EnchantListener extends AbstractListener<EnchantsPlugin> {
                 .onDeath(deathEvent, player, item, level));
         }
 
-        if (killer != null) {
+        if (killer != null && this.plugin.schedulerUtil().isOwned(killer)) {
             this.manager.handleInSlot(killer, EquipmentSlot.HAND, EnchantRegistry.KILL, (item, enchant,
                                                                                          level) -> enchant.onKill(event,
                                                                                              entity, killer, item,

@@ -17,7 +17,6 @@ import su.nightexpress.excellentenchants.enchantment.GameEnchantment;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
 import su.nightexpress.nightcore.config.ConfigValue;
 import su.nightexpress.nightcore.config.FileConfig;
-import su.nightexpress.nightcore.util.Lists;
 import su.nightexpress.nightcore.util.NumberUtil;
 import su.nightexpress.nightcore.util.wrapper.UniParticle;
 
@@ -27,7 +26,7 @@ import java.util.Set;
 @NullMarked
 public class BaneOfNetherspawnEnchant extends GameEnchantment implements AttackEnchant {
 
-    private static final Set<EntityType> ENTITY_TYPES = Lists.newSet(
+    private static final Set<EntityType> ENTITY_TYPES = Set.of(
         EntityType.BLAZE, EntityType.MAGMA_CUBE,
         EntityType.WITHER_SKELETON, EntityType.GHAST, EntityType.WITHER,
         EntityType.PIGLIN, EntityType.PIGLIN_BRUTE,

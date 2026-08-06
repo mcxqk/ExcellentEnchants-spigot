@@ -1,5 +1,6 @@
 package su.nightexpress.excellentenchants.enchantment.tool;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -29,7 +30,6 @@ import su.nightexpress.nightcore.config.FileConfig;
 import su.nightexpress.nightcore.util.sound.VanillaSound;
 
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 
 @NullMarked
@@ -38,17 +38,15 @@ public class ReplanterEnchant extends GameEnchantment implements InteractEnchant
     private boolean replantOnRightClick;
     private boolean replantOnPlantBreak;
 
-    private static final Map<Material, Material> CROP_MAP = new HashMap<>();
-
-    static {
-        CROP_MAP.put(Material.WHEAT_SEEDS, Material.WHEAT);
-        CROP_MAP.put(Material.BEETROOT_SEEDS, Material.BEETROOTS);
-        CROP_MAP.put(Material.MELON_SEEDS, Material.MELON_STEM);
-        CROP_MAP.put(Material.PUMPKIN_SEEDS, Material.PUMPKIN_STEM);
-        CROP_MAP.put(Material.POTATO, Material.POTATOES);
-        CROP_MAP.put(Material.CARROT, Material.CARROTS);
-        CROP_MAP.put(Material.NETHER_WART, Material.NETHER_WART);
-    }
+    private static final Map<Material, Material> CROP_MAP = Map.of(
+        Material.WHEAT_SEEDS, Material.WHEAT,
+        Material.BEETROOT_SEEDS, Material.BEETROOTS,
+        Material.MELON_SEEDS, Material.MELON_STEM,
+        Material.PUMPKIN_SEEDS, Material.PUMPKIN_STEM,
+        Material.POTATO, Material.POTATOES,
+        Material.CARROT, Material.CARROTS,
+        Material.NETHER_WART, Material.NETHER_WART
+    );
 
     public ReplanterEnchant(EnchantsPlugin plugin, EnchantManager manager, Path file, EnchantContext context) {
         super(plugin, manager, file, context);
@@ -155,11 +153,16 @@ public class ReplanterEnchant extends GameEnchantment implements InteractEnchant
 
         // Replant the gathered crops with a new one.
         if (this.takeSeeds(player, dataPlant.getPlacementMaterial())) {
-            plugin.runTask(() -> {
-                blockPlant.setType(plant.getMaterial());
-                plant.setAge(0);
-                blockPlant.setBlockData(plant);
-            });
+            Location plantLocation = blockPlant.getLocation();
+            Material plantMaterial = plant.getMaterial();
+            plant.setAge(0);
+            BlockData replanted = plant.clone();
+            this.plugin.schedulerUtil().runAtRegionDelayed(plantLocation, () -> {
+                Block target = plantLocation.getBlock();
+                if (!target.isEmpty()) return;
+                target.setType(plantMaterial);
+                target.setBlockData(replanted);
+            }, 1L);
         }
         return true;
     }

@@ -2,24 +2,24 @@ package su.nightexpress.excellentenchants;
 
 
 import org.jspecify.annotations.Nullable;
-import su.nightexpress.excellentenchants.bridge.spigot.SpigotEnchantsBootstrap;
 import su.nightexpress.excellentenchants.command.BaseCommands;
 import su.nightexpress.excellentenchants.config.Config;
 import su.nightexpress.excellentenchants.config.Lang;
 import su.nightexpress.excellentenchants.config.Perms;
 import su.nightexpress.excellentenchants.placeholder.PlaceholderHook;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
+import su.nightexpress.excellentenchants.scheduler.SchedulerUtil;
 import su.nightexpress.excellentenchants.tooltip.TooltipManager;
 import su.nightexpress.nightcore.NightPlugin;
 import su.nightexpress.nightcore.commands.command.NightCommand;
 import su.nightexpress.nightcore.config.PluginDetails;
 import su.nightexpress.nightcore.util.Plugins;
-import su.nightexpress.nightcore.util.Version;
 
 public class EnchantsPlugin extends NightPlugin {
 
     private TooltipManager tooltipManager;
     private EnchantManager enchantManager;
+    private SchedulerUtil schedulerUtil;
 
     @Override
 
@@ -43,12 +43,8 @@ public class EnchantsPlugin extends NightPlugin {
     @Override
     protected void onStartup() {
         super.onStartup();
-
+        this.schedulerUtil = new SchedulerUtil(this);
         EnchantsAPI.load(this);
-
-        if (Version.isSpigot()) {
-            new SpigotEnchantsBootstrap().bootstrap(this);
-        }
     }
 
     @Override
@@ -70,15 +66,23 @@ public class EnchantsPlugin extends NightPlugin {
 
     @Override
     public void disable() {
-        if (Plugins.hasPlaceholderAPI()) {
-            PlaceholderHook.shutdown();
+        if (this.enchantManager != null) {
+            this.enchantManager.shutdown();
+            this.enchantManager = null;
         }
 
         if (this.tooltipManager != null) {
             this.tooltipManager.shutdown();
             this.tooltipManager = null;
         }
-        if (this.enchantManager != null) this.enchantManager.shutdown();
+
+        if (Plugins.hasPlaceholderAPI()) {
+            PlaceholderHook.shutdown();
+        }
+
+        if (this.schedulerUtil != null) {
+            this.schedulerUtil.shutdown();
+        }
     }
 
     @Override
@@ -86,6 +90,7 @@ public class EnchantsPlugin extends NightPlugin {
         super.onShutdown();
 
         EnchantsAPI.clear();
+        this.schedulerUtil = null;
     }
 
     private void loadCommands() {
@@ -101,6 +106,10 @@ public class EnchantsPlugin extends NightPlugin {
 
     public EnchantManager getEnchantManager() {
         return this.enchantManager;
+    }
+
+    public SchedulerUtil schedulerUtil() {
+        return this.schedulerUtil;
     }
 
     @Nullable

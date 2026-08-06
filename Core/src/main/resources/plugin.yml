@@ -1,7 +1,8 @@
 main: su.nightexpress.excellentenchants.EnchantsPlugin
 version: '${project.version}'
 name: ExcellentEnchants
-author: NightExpress
+authors: [ NightExpress, cloudfl4re ]
+folia-supported: true
 desciption: 75+ vanilla-like enchantments with seemless integration!
 depend: [ nightcore ]
 softdepend:

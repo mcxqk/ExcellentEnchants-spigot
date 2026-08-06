@@ -19,7 +19,6 @@ import su.nightexpress.excellentenchants.enchantment.GameEnchantment;
 import su.nightexpress.excellentenchants.manager.EnchantManager;
 import su.nightexpress.nightcore.config.ConfigValue;
 import su.nightexpress.nightcore.config.FileConfig;
-import su.nightexpress.nightcore.util.Lists;
 import su.nightexpress.nightcore.util.NumberUtil;
 
 import java.nio.file.Path;
@@ -28,7 +27,7 @@ import java.util.Set;
 @NullMarked
 public class ElementalProtectionEnchant extends GameEnchantment implements ProtectionEnchant {
 
-    private static final Set<DamageType> DAMAGE_CAUSES = Lists.newSet(
+    private static final Set<DamageType> DAMAGE_CAUSES = Set.of(
         DamageType.WITHER,
         DamageType.MAGIC,
         DamageType.FREEZE,

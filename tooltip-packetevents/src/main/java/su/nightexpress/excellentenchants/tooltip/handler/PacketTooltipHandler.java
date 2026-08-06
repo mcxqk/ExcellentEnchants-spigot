@@ -1,8 +1,8 @@
 package su.nightexpress.excellentenchants.tooltip.handler;
 
 import java.util.Optional;
+import java.util.UUID;
 
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -72,9 +72,8 @@ public class PacketTooltipHandler implements TooltipHandler {
         @Override
         public void onPacketSend(PacketSendEvent event) {
             PacketTypeCommon type = event.getPacketType();
-            Player player = event.getPlayer();
-            if (player == null) return;
-            if (!this.controller.isReadyForTooltipUpdate(player)) return;
+            UUID playerId = event.getUser().getUUID();
+            if (playerId == null || !this.controller.isReadyForTooltipUpdate(playerId)) return;
 
             switch (type) {
                 case PacketType.Play.Server.SET_SLOT -> {
