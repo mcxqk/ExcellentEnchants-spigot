@@ -1,0 +1,89 @@
+# ExcellentEnchants Luminol 26.2 Folia 审计
+
+## 范围与判定基线
+
+- 目标核心：Luminol 26.2 build 726 stable，Minecraft 26.2，Java 25，协议 776。
+- 审计基线：ExcellentEnchants 5.4.3，上游提交 `4bd372e5a73c5055d935d93c55ba7717393dd0e1`。
+- 本文是修改前静态审计，不等同于真实 Luminol 服务端运行测试。
+- `folia-supported: true` 只允许插件加载，不能证明线程安全或功能完整。
+- 本地 Luminol API JAR 和服务端 JAR 是版本事实的最终依据；升级 Luminol、Paper、NightCore 或插件依赖后必须重新审计。
+- `must_fix` 表示违反本项目 Folia 硬规则；`suggested_fix` 表示已有风险但不是明确硬失败；`defer` 表示超出本次范围；`uncertain` 表示缺少第三方运行契约或日志，不能推定安全。
+
+## 修改前调用链
+
+| 分级 | 入口与完整调用链 | 当前上下文 | 实际所有者 | 跨边界值 | 终止与清理 | 命中规则 |
+|---|---|---|---|---|---|---|
+| must_fix | `EnchantManager.setup -> onLoad -> addAsyncTask -> tickArrowEffects -> AbstractArrow#isValid/isDead/getLocation -> UniParticle#play` | NightCore Async | 每个 Arrow Entity | `AbstractArrow`、粒子集合和 Location 活状态 | Manager shutdown 只清空 Map；周期任务由 NightCore Manager 取消 | 1、2、3、6、8 |
+| must_fix | `EnchantManager.setup -> onLoad -> addTask -> tickPassiveEnchants -> getPassiveEnchantEntities -> Players#getOnline/Server#getWorlds/World#getLivingEntities -> handleInSlots -> PassiveEnchant#onTrigger` | NightCore Global | 每个 Player 或 LivingEntity Entity | 在线玩家、世界和实体活对象集合 | Manager shutdown 取消周期任务；实体缓存另行清理 | 1、2、3、6、7、8 |
+| must_fix | `EnchantManager.setup -> onLoad -> addTask -> tickBlocks -> TickedBlock#tick/restore` | NightCore Global | 每个 Block Region | `Location`、`Block` 活状态和临时方块记录 | Manager shutdown 调用 `restoreBlocks` 后清空 Map | 1、2、3、6、7、8 |
+| must_fix | `TooltipListener#onGameModeChange -> plugin.runTask -> Player#updateInventory` | Player 事件上下文切到 NightCore Global next tick | Player Entity | `Player` 活对象 | 单次任务结束；Manager shutdown 清状态 | 1、3、6、7 |
+| must_fix | `GenericListener#onChargesFillOnEnchant -> plugin.runTask -> EnchantItemEvent#getInventory/getEnchantsToAdd -> Inventory#getItem/setItem` | Player/Inventory 事件上下文切到 NightCore Global next tick | Player Entity 与其 Inventory | 事件、Inventory、ItemStack 活状态 | 单次任务结束 | 1、3、6、7、8 |
+| must_fix | `EnchantListener#onProjectileHit -> plugin.runTask -> EnchantManager#removeArrowEffects` | Projectile 事件上下文切到 NightCore Global next tick | Arrow Entity；共享索引为 Global/Concurrent | `AbstractArrow` 强引用作为 Map key | 命中后一 tick 删除；失效箭目前由异步扫描删除；shutdown 清空 | 1、2、3、6、7、8 |
+| must_fix | `AnvilListener#handleRecharge -> plugin.runTask -> PrepareAnvilEvent#getView -> AnvilView#setRepairCost` | Inventory 事件上下文切到 NightCore Global next tick | 查看者 Player Entity 与 Inventory | 事件和 AnvilView 活对象 | 单次任务结束 | 1、3、6、7、8 |
+| must_fix | `EnchantManager#handleEnchantExplosion -> plugin.runTask -> explosions.remove(entity.getUniqueId())` | 爆炸 Entity Region 切到 NightCore Global next tick | Entity UUID 的共享索引；UUID 应在原上下文快照化 | 当前闭包仍捕获 `LivingEntity` 活对象 | 一 tick 后删除；shutdown 清空 | 1、2、3、6、7、8 |
+| must_fix | `StoppingForceEnchant#onProtect -> plugin.runTask -> victim#getVelocity/setVelocity` | Victim 伤害事件上下文切到 NightCore Global next tick | Victim Entity | `LivingEntity` 活对象 | 单次任务结束 | 1、3、6、7、8 |
+| must_fix | `AutoReelEnchant#onFishing -> plugin.runTask -> PlayerFishEvent#isCancelled/getHook -> FishHook#retrieve -> Player#swingHand/damageItemStack` | Player/FishHook 事件上下文切到 NightCore Global next tick | Player Entity 与 FishHook Entity | 事件、Player、FishHook、ItemStack 活对象 | 单次任务结束；没有实体退休回调 | 1、3、6、7、8 |
+| must_fix | `ReplanterEnchant#onBreak -> plugin.runTask -> Block#setType/setBlockData` | Player/Block 事件上下文切到 NightCore Global next tick | Block Region | Block、Ageable BlockData；种子已在事件上下文扣除 | 单次任务结束；若写回失败种子不会恢复 | 1、3、6、7、8 |
+| must_fix | `LingeringEnchant#onHit -> World#spawn(ThrownPotion) -> ThrownPotion#teleport(location)` | Projectile 命中 Region | 目标 Location Region | ThrownPotion 与目标 Location 活状态 | 后续喷溅事件或实体生命周期清理 | 4、6、8 |
+| must_fix | `DragonfireArrowsEnchant#onHit -> World#spawn(ThrownPotion) -> ThrownPotion#teleport(location)` | Projectile 命中 Region | 目标 Location Region | ThrownPotion 与目标 Location 活状态 | 后续喷溅事件或实体生命周期清理 | 4、6、8 |
+| must_fix | `SlotListener/GenericListener/EnchantListener/周期被动任务 -> EnchantManager#updateCache/reCache/clearCache -> EnchantHolder.cachedEnchants` | 多个 Player/Entity Region | UUID 对应的 Entity | 外层普通 `HashMap`、内层普通 `HashMap`、带 ItemStack 的 `EnchantedItem` | Quit/死亡和 shutdown 路径不完整；`EnchantHolder#clear` 不清缓存 | 2、6、8 |
+| must_fix | `EnchantManager` 的 `tickedBlocks` 与 `explosions` | 多个 Region、Global 任务和事件 | Block Region 或共享索引 | 两个普通 `HashMap`；键空间随方块或 UUID 增长 | tick/爆炸后一 tick/shutdown 清理，但并发访问不安全 | 2、6、8 |
+| must_fix | `EnchantRegistry` 静态 `BY_KEY/BY_ID/HOLDERS -> register/get/snapshot` | Bootstrap、命令、事件、网络回调等多个上下文 | Global 注册状态 | 三个普通 `HashMap` 及其快照 | 当前 shutdown 不清注册表和 Holder 缓存 | 2、8 |
+| must_fix | `TooltipManager.updateStopList -> TooltipController#isReadyForTooltipUpdate -> PacketTooltipHandler/ProtocolTooltipHandler packet callback` | Player 事件写入，第三方网络回调读取 | UUID 状态为共享索引；Player 活状态归 Entity | 普通 `HashSet<UUID>`，网络回调还读取 `Player#getGameMode` | Quit 删除、Tooltip shutdown 清空、handler unregister | 2、6、8 |
+| must_fix | `BaseCommands command callback -> target Player inventory/equipment/menu/reload` | Sender Player Region 或 Console Global | Target Player Entity；reload 为 Global 生命周期 | Target `Player`、Inventory、ItemStack、菜单活状态 | 命令返回；热重载可遗留旧 Manager/Listener/回调 | 1、3、6、8 |
+| must_fix | `EnchantListener#onProjectileHit -> Projectile#getShooter -> Arrow/Trident enchant#onHit` | Projectile Entity Region | Shooter Entity 可能属于另一 Region | Projectile 与 Shooter 两端活对象 | 即时事件结束；箭矢效果下一 tick清理 | 6、8 |
+| must_fix | `EnchantListener#onDamageByEntity -> AbstractArrow#getShooter -> enchant#onDamage` | Victim/伤害事件 Region | Shooter Entity 可能属于另一 Region | Victim、Projectile、Shooter 多端活对象 | 即时事件结束 | 6、8 |
+| must_fix | `EnchantListener#onEntityDeath -> LivingEntity#getKiller -> handleInSlot -> KillEnchant#onKill` | Dead Entity Region | Killer Player 可能属于另一 Region | Dead Entity、Killer、Inventory 活状态 | 即时事件结束；缓存清理另行处理 | 6、8 |
+| must_fix | `PlaceholderAPI -> PlaceholderHook.EnchantsExpansion#onPlaceholderRequest -> Player#getInventory#getItem` | PlaceholderAPI 调用线程未由本插件约束 | Player Entity | Player、Inventory、ItemStack 活状态 | expansion shutdown unregister 并置空 | 1、6、8 |
+| suggested_fix | Packet tooltip 回调把第三方提供的 `Player` 传给 `TooltipController`，并操作 packet 转换得到的 ItemStack | PacketEvents/ProtocolLib 网络回调 | Player Entity；packet ItemStack 是转换副本 | Player 活对象、ItemStack 副本 | handler shutdown unregister | 2、6、8 |
+| suggested_fix | `GlassbreakerEnchant/TunnelEnchant/ReplanterEnchant/CureEnchant/BaneOfNetherspawnEnchant/ElementalProtectionEnchant` 的静态可变集合 | 类初始化后主要只读，调用来自多个 Region | 进程级只读配置 | 可变 `HashSet/HashMap` | 类卸载前常驻 | 2、8 |
+| defer | ProtocolLib 与 PacketEvents 自身的 Folia 回调线程、packet clone 和事件对象契约 | 第三方定义 | 第三方定义 | 缺少目标版本完整运行契约 | 第三方负责；本插件仅 unregister | uncertain |
+| uncertain | NightCore 2.16.4 Manager 的所有任务取消、reload 顺序和异常回调边界 | NightCore 定义 | Global/Async/Entity/Region 依入口而定 | 依赖源码可静态检查，真实异常与 reload 仍需运行日志 | Manager shutdown | 1、3、6、8 |
+
+## 共享集合审计
+
+| 集合 | 修改前实现 | 读写来源 | 结论 | 处理方向 |
+|---|---|---|---|---|
+| `EnchantManager.arrowEffects` | `ConcurrentHashMap<AbstractArrow, Set<UniParticle>>`，值是普通 `HashSet` | Projectile 事件写入，Async 周期遍历，命中事件删除 | must_fix，Map 并发但值集合不安全，且强持有 Arrow | 改为 Entity 自有任务与可取消句柄，不再全局异步遍历活实体 |
+| `EnchantManager.tickedBlocks` | `HashMap<Location, TickedBlock>` | 多 Region 添加/删除，Global 周期遍历与 shutdown 恢复 | must_fix | 使用不可变 BlockKey、并发索引和 Region 自有任务，增加持久化恢复记录 |
+| `EnchantManager.explosions` | `HashMap<UUID, Explosion>` | 多 Region 爆炸创建、伤害、删除 | must_fix | `ConcurrentHashMap`，闭包只携带 UUID 快照，明确超时和 shutdown 清理 |
+| `EnchantHolder.cachedEnchants` | 外层和槽位层均为 `HashMap` | Slot、装备、事件、被动附魔等多个 Entity Region | must_fix | 并发外层索引与不可变槽位快照，不向调用者暴露可变内部 Map |
+| `EnchantRegistry.BY_KEY/BY_ID/HOLDERS` | 静态 `HashMap` | Bootstrap 注册，事件、命令、网络包读取 | must_fix | 并发注册表并返回不可变快照；shutdown 清缓存但保留静态 Holder 身份 |
+| `TooltipManager.updateStopList` | `HashSet<UUID>` | Player 事件写，packet 回调读 | must_fix | `ConcurrentHashMap.newKeySet()`；Creative 状态也以 UUID 快照维护 |
+| `TooltipManager.factoryMap` | `LinkedHashMap` | setup 填充，shutdown 清理 | suggested_fix，生命周期内基本单上下文 | 保持加载期写入，确保 packet handler 先注销再清理 |
+| 静态材料、实体类型和伤害类型集合 | 可变 `HashMap/HashSet` | 类初始化写，多个 Region 只读 | suggested_fix | 改为 `Map.ofEntries`、`Set.of` 或不可变副本 |
+| 配置加载期集合与事件局部集合 | `HashMap/HashSet/ArrayList` | 单次调用或加载期内部使用 | defer，无共享证据 | 不做机会式重构；若后续跨上下文再重新分类 |
+
+## 调度与传送扫描基线
+
+修改前静态扫描结果：
+
+- `plugin.runTask`：8 处。
+- `addAsyncTask`：1 处。
+- `addTask`：2 处。
+- 调度入口合计：11 处。
+- 同步 `.teleport(`：2 处。
+- 直接 `Bukkit.getScheduler()`：0 处；但业务代码通过 NightCore `plugin.runTask` 进入 Global scheduler，仍需迁移到项目包装层。
+- `Future#get`、同步 `join` 和显式跨 Region 锁等待：当前目标源码扫描未命中。
+
+## 指定不可用事件
+
+以下五种事件在当前 `Core` 和 `API` Java 源码中均无监听器，静态扫描命中数为 0：
+
+- `PlayerRespawnEvent`
+- `PlayerTeleportEvent`
+- `PlayerChangedWorldEvent`
+- `WorldLoadEvent`
+- `WorldUnloadEvent`
+
+本项目 Folia 规则将这五种事件判定为在 Folia 层无可调用 API，因此本次不新增任何相关监听器。本地 Luminol 26.2 build 726 API JAR 包含对应 Bukkit 事件类只说明编译类型存在，不据此声明其 Folia 运行时可用。
+
+## 修改目标与边界
+
+- 一次性检测并缓存 Folia，业务代码只使用 `SchedulerUtil`，不反射构造调度调用。
+- Entity 和 Region 调度延迟最少 1 tick；已经拥有目标时允许在当前事件上下文直接执行，跨边界不尝试绕过调度延迟。
+- Async 线程只处理不可变快照、文件或网络工作，不读取或写入 Player、Entity、World、Chunk、Block 或 Inventory 活状态。
+- 远程 shooter 或 killer 不归当前 Region 所有时，跳过需要同时访问两端活状态的即时附魔效果，不在另一 Region 重放已结束事件。
+- Luminol 上保留 reload 命令节点但拒绝热重载，要求完整重启，避免旧监听器、任务和网络回调继续存活。
+- 不修改插件名、主类、公开命令节点、权限和已有配置键；Tooltip 现有 `Player` API 保留兼容入口。
+- 修改后必须执行功能与范围、Folia 与性能、生命周期与资源三轮复核，并用真实 Luminol 26.2 启动日志验证加载和正常关闭。
